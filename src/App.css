@@ -1,0 +1,490 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background: #f9f5f4;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+#root {
+  width: 100%;
+  max-width: 600px;
+  padding: 24px;
+  padding-bottom: 100px;
+}
+
+.container {
+  width: 100%;
+  position: relative;
+}
+
+.header {
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #121212;
+  letter-spacing: -0.72px;
+}
+
+/* 日期选择器 */
+.date-picker-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 8px;
+}
+
+.date-picker-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.calendar-icon {
+  width: 24px;
+  height: 24px;
+  color: #393433;
+}
+
+.date-picker-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #f3efee;
+  color: #222;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.date-picker-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.date-label {
+  padding: 0 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #9f9f9f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+}
+
+.filter-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #9f9f9f;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.filter-tab:hover {
+  color: #393433;
+}
+
+.filter-tab.active {
+  background: #393433;
+  color: white;
+}
+
+/* 标签筛选 */
+.tag-filter-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+}
+
+.tag-filter-tab {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-radius: 16px;
+  transition: all 0.2s;
+}
+
+.tag-filter-tab:hover {
+  border-color: #393433;
+  color: #393433;
+}
+
+.tag-filter-tab.active {
+  background: rgba(57, 52, 51, 0.1);
+  font-weight: 600;
+}
+
+.input-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 0 16px;
+}
+
+#todo-input {
+  flex: 1;
+  padding: 18px 21px;
+  border: none;
+  border-radius: 12px;
+  background: #f3efee;
+  color: #222;
+  font-size: 18px;
+  font-family: inherit;
+  outline: none;
+}
+
+#todo-input::placeholder {
+  color: #9f9f9f;
+}
+
+#add-btn {
+  padding: 18px 24px;
+  background: #393433;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+#add-btn:hover {
+  opacity: 0.9;
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.todo-item {
+  background: #f3efee;
+  padding: 14px 16px;
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  animation: fadeIn 0.3s ease;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: grab;
+}
+
+.todo-item:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.todo-item:active {
+  cursor: grabbing;
+}
+
+.todo-item.dragging {
+  opacity: 0.5;
+  transform: scale(1.02);
+}
+
+.todo-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.todo-text {
+  color: #121212;
+  font-size: 16px;
+  font-weight: 500;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.todo-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.todo-date {
+  font-size: 12px;
+  color: #9f9f9f;
+}
+
+.priority-select {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.05);
+  color: #666;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.priority-select:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* 标签样式 */
+.todo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.15s;
+}
+
+.tag-badge:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.tag-badge.active {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tag-remove:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.tag-input-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-input-container select {
+  padding: 3px 8px;
+  border: 1px dashed #9f9f9f;
+  border-radius: 12px;
+  background: transparent;
+  color: #666;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.close-tag-editor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #9f9f9f;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+
+.close-tag-editor:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #393433;
+}
+
+.add-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px dashed #9f9f9f;
+  background: transparent;
+  color: #9f9f9f;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+
+.add-tag-btn:hover {
+  border-color: #393433;
+  color: #393433;
+  background: rgba(57, 52, 51, 0.1);
+}
+
+.todo-item.completed .todo-text {
+  text-decoration: line-through;
+  color: #9f9f9f;
+}
+
+.checkbox {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #9f9f9f;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.checkbox:hover {
+  border-color: #393433;
+}
+
+.todo-item.completed .checkbox {
+  background: #9f9f9f;
+  border-color: #9f9f9f;
+}
+
+.checkbox::after {
+  content: "✓";
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.todo-item.completed .checkbox::after {
+  opacity: 1;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.todo-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: #9f9f9f;
+  border-radius: 50%;
+}
+
+.stats {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #9f9f9f;
+  font-size: 14px;
+  padding: 20px;
+  background: linear-gradient(to bottom, transparent, #f9f5f4 20%);
+}
+
+.stats span {
+  color: #393433;
+  font-weight: 600;
+}
+
+.token-status {
+  position: fixed;
+  bottom: 40px;
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  background: linear-gradient(to bottom, transparent, #f9f5f4 20%);
+}
+
+.empty-state {
+  text-align: center;
+  color: #9f9f9f;
+  padding: 60px 20px;
+  font-size: 16px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
