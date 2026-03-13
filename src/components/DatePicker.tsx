@@ -1,12 +1,11 @@
-import { formatDateForInput } from '../utils/dateUtils';
 
 interface DatePickerProps {
   selectedDate: string;
   onDateChange: (date: string) => void;
-  hasTaskDates: number[]; // 有任务的日期戳数组
+  hasTaskDates?: number[]; // 有任务的日期戳数组
 }
 
-export function DatePicker({ selectedDate, onDateChange, hasTaskDates }: DatePickerProps) {
+export function DatePicker({ selectedDate, onDateChange }: DatePickerProps) {
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onDateChange(e.target.value);
   };

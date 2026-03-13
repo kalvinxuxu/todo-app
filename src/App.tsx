@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import { TokenStatus } from './components/TokenStatus'
 import { DatePicker } from './components/DatePicker'
@@ -84,7 +84,6 @@ function App() {
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [editingTags, setEditingTags] = useState<number | null>(null);
-  const [newTagInput, setNewTagInput] = useState('');
 
   // 保存时迁移数据
   useEffect(() => {
@@ -184,7 +183,6 @@ function App() {
     const targetTodo = filteredTodos[index];
 
     if (draggedTodo && targetTodo) {
-      const tempOrder = draggedTodo.order;
       draggedTodo.order = targetTodo.order;
       // 更新其他任务的顺序
       newTodos.forEach(todo => {
