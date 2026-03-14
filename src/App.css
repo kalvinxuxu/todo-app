@@ -12,13 +12,32 @@ body {
   justify-content: center;
   padding-top: 40px;
   padding-bottom: 40px;
+  /* 防止移动端双击缩放 */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 #root {
   width: 100%;
   max-width: 600px;
-  padding: 24px;
+  padding: 16px;
   padding-bottom: 100px;
+}
+
+/* 移动端优化 */
+@media (max-width: 480px) {
+  body {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  #root {
+    padding: 8px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
 }
 
 .container {
@@ -203,6 +222,11 @@ body {
   animation: fadeIn 0.3s ease;
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: grab;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .todo-item:hover {
@@ -217,6 +241,91 @@ body {
 .todo-item.dragging {
   opacity: 0.5;
   transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border: 2px dashed #393433;
+  background: #fff;
+}
+
+/* 长按拖拽时的目标位置指示 */
+.todo-item.drag-over {
+  border-top: 3px solid #393433;
+  transition: border-top-color 0.2s;
+}
+
+/* 长按提示动画 */
+@keyframes pulse {
+  0%, 100% {
+    background: #f3efee;
+  }
+  50% {
+    background: #e8e4e3;
+  }
+}
+
+.todo-item:active:not(.completed):not(.editing) {
+  animation: pulse 0.6s ease-in-out;
+}
+
+.todo-item.swiping {
+  transition: none;
+}
+
+/* 移动端点击反馈 */
+@media (hover: none) and (pointer: coarse) {
+  .todo-item:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .todo-item:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  .menu-btn,
+  .delete-btn {
+    opacity: 1;
+  }
+
+  .filter-tab:hover,
+  .tag-filter-tab:hover {
+    background: transparent;
+  }
+}
+
+/* 滑动操作背景 */
+.swipe-action {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.swipe-action.visible {
+  opacity: 1;
+}
+
+.swipe-delete {
+  right: 0;
+  background: linear-gradient(to left, #ffcdd2 0%, transparent 100%);
+  color: #c62828;
+  border-radius: 12px;
+}
+
+.swipe-complete {
+  left: 0;
+  background: linear-gradient(to right, #c8e6c9 0%, transparent 100%);
+  color: #2e7d32;
+  border-radius: 12px;
 }
 
 .todo-content {
@@ -440,6 +549,162 @@ body {
   height: 4px;
   background: #9f9f9f;
   border-radius: 50%;
+}
+
+/* 任务操作菜单 */
+.todo-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menu-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 4px;
+}
+
+.menu-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.todo-item:hover .menu-btn {
+  opacity: 1;
+}
+
+.menu-btn span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: #9f9f9f;
+  border-radius: 50%;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  min-width: 120px;
+  z-index: 100;
+  animation: slideIn 0.15s ease;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.menu-item:hover {
+  background: #f3efee;
+}
+
+.menu-item.copy:hover {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.menu-item.delete:hover {
+  background: #ffebee;
+  color: #c62828;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 编辑模式 */
+.todo-item.editing {
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.edit-mode {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #393433;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+}
+
+.edit-input:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.edit-save-btn {
+  padding: 6px 16px;
+  background: #393433;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.edit-save-btn:hover {
+  opacity: 0.9;
+}
+
+.edit-cancel-btn {
+  padding: 6px 16px;
+  background: #f3efee;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.edit-cancel-btn:hover {
+  background: #e8e4e3;
 }
 
 .stats {
