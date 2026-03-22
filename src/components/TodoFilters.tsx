@@ -76,8 +76,7 @@ interface SummaryFilterTabsProps {
 
 export const SummaryFilterTabs = memo(({
   currentSummaryFilter,
-  onSummaryFilterChange,
-  onCustomRangeChange
+  onSummaryFilterChange
 }: SummaryFilterTabsProps) => {
   return (
     <div className="summary-filter-tabs">
