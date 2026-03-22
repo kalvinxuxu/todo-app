@@ -1,15 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import './App.css'
-import { TokenStatus } from './components/TokenStatus'
-import { DatePicker } from './components/DatePicker'
-import { TagBadge } from './components/TagBadge'
-import { analyzeTags, AVAILABLE_TAGS, getTagColor } from './utils/tagAnalyzer'
+import {
+  DatePicker,
+  TokenStatus,
+  TodoItem,
+  TagFilterTabs,
+  TodoForm,
+  SummaryFilterTabs,
+  type SummaryFilterType,
+  TaskStatusFilterTabs,
+} from './components'
+import { useSwipeAndDrag, useTodoActions } from './hooks'
 import {
   formatDateForInput,
   parseDateInput,
   getStartOfDay,
   getEndOfDay,
-  formatDisplayDate,
   getFriendlyDateLabel
 } from './utils/dateUtils'
 
@@ -22,32 +28,6 @@ interface Todo {
   priority: 'very-necessary' | 'important' | 'Normal' | '一般';
   order: number;
   tags: string[];
-}
-
-type FilterType = 'all' | 'pending' | 'completed';
-
-// 触屏滑动状态
-interface SwipeState {
-  todoId: number | null;
-  offsetX: number;
-  isComplete: boolean;
-  isDelete: boolean;
-}
-
-// 获取优先级颜色深浅
-function getPriorityColor(priority: 'very-necessary' | 'important' | 'Normal' | '一般', order: number, totalItems: number): string {
-  const baseColors = {
-    'very-necessary': { r: 239, g: 68, b: 68 },
-    'important': { r: 251, g: 146, b: 60 },
-    'Normal': { r: 59, g: 130, b: 246 },
-    '一般': { r: 156, g: 163, b: 175 },
-  };
-
-  const positionFactor = totalItems > 1 ? 1 - (order / (totalItems - 1)) * 0.4 : 0;
-  const base = baseColors[priority];
-  const darken = (value: number) => Math.floor(value * (0.6 + positionFactor * 0.4));
-
-  return `rgb(${darken(base.r)}, ${darken(base.g)}, ${darken(base.b)})`;
 }
 
 // 迁移现有数据，添加新字段
@@ -63,8 +43,36 @@ function migrateTodos(todos: any[]): Todo[] {
     priority: priorityMap[todo.priority] || 'Normal',
     order: todo.order ?? index,
     dueDate: todo.dueDate ?? todo.createdAt,
-    tags: todo.tags ?? analyzeTags(todo.text),
+    tags: todo.tags ?? [],
   }));
+}
+
+// 获取优先级显示颜色
+function getPriorityColor(priority: 'very-necessary' | 'important' | 'Normal' | '一般', order: number, totalItems: number): string {
+  const baseColors = {
+    'very-necessary': { r: 239, g: 68, b: 68 },
+    'important': { r: 251, g: 146, b: 60 },
+    'Normal': { r: 59, g: 130, b: 246 },
+    '一般': { r: 156, g: 163, b: 175 },
+  };
+
+  const positionFactor = totalItems > 1 ? 1 - (order / (totalItems - 1)) * 0.4 : 0;
+  const base = baseColors[priority];
+  const darken = (value: number) => Math.floor(value * (0.6 + positionFactor * 0.4));
+
+  return `rgb(${darken(base.r)}, ${darken(base.g)}, ${darken(base.b)})`;
+}
+
+// 获取汇总筛选标签显示
+function getSummaryLabel(filter: SummaryFilterType): string {
+  switch (filter) {
+    case 'past-5-days': return '过去 5 天';
+    case 'past-7-days': return '过去 7 天';
+    case 'finished': return '已完成任务';
+    case 'unfinished': return '未完成任务';
+    case 'custom-range': return '自定义日期范围';
+    default: return '全部任务';
+  }
 }
 
 function App() {
@@ -82,33 +90,25 @@ function App() {
   });
 
   const [inputValue, setInputValue] = useState('');
-  const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
   const [selectedDate, setSelectedDate] = useState<string>(formatDateForInput(Date.now()));
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
-  const [draggedId, setDraggedId] = useState<number | null>(null);
   const [editingTags, setEditingTags] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilterType>('all');
+  const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string } | null>(null);
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-  // 触屏滑动状态
-  const [swipeState, setSwipeState] = useState<SwipeState>({
-    todoId: null,
-    offsetX: 0,
-    isComplete: false,
-    isDelete: false,
-  });
+  // 使用防抖同步 localStorage，避免频繁写入
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
 
-  // 触屏拖拽状态
-  const [touchDragState, setTouchDragState] = useState<{
-    todoId: number | null;
-    fromIndex: number;
-    offsetY: number;
-  }>({ todoId: null, fromIndex: -1, offsetY: 0 });
-
-  // 保存时迁移数据
   useEffect(() => {
-    localStorage.setItem('todos', JSON.stringify(todos));
+    const timer = setTimeout(() => {
+      localStorage.setItem('todos', JSON.stringify(todosRef.current));
+    }, 500);
+    return () => clearTimeout(timer);
   }, [todos]);
 
   // 点击页面其他地方关闭菜单
@@ -123,337 +123,175 @@ function App() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [openMenuId]);
 
-  const selectedDateTimestamp = parseDateInput(selectedDate);
+  const selectedDateTimestamp = useMemo(() => parseDateInput(selectedDate), [selectedDate]);
 
-  const priorityWeight: Record<'very-necessary' | 'important' | 'Normal' | '一般', number> = {
-    'very-necessary': 0,
-    'important': 1,
-    'Normal': 2,
-    '一般': 3,
-  };
+  // 计算有未完成任务的日期列表（用于日历红点标注）
+  const pendingTaskDates = useMemo(() => {
+    return todos
+      .filter(todo => !todo.completed)
+      .map(todo => {
+        const dueDate = todo.dueDate ?? todo.createdAt;
+        const date = new Date(dueDate);
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      });
+  }, [todos]);
 
-  const filteredTodos = todos
-    .filter(todo => {
-      const todoDate = todo.dueDate ?? todo.createdAt;
+  // 自定义 hooks
+  const {
+    addTodo,
+    toggleTodo,
+    deleteTodo,
+    updatePriority,
+    addTag,
+    removeTag,
+    copyTodoToTomorrow,
+    startEditing,
+    saveEdit,
+    cancelEdit,
+    copyTodoToDate,
+  } = useTodoActions({
+    todos,
+    setTodos,
+    inputValue,
+    setInputValue,
+    selectedDateTimestamp,
+    selectedDate,
+    setOpenMenuId,
+    setEditingTodoId,
+    setEditText,
+  });
+
+  const filteredTodos = useMemo(() => {
+    let result = todos;
+
+    // 根据汇总筛选类型过滤
+    if (summaryFilter !== 'all') {
+      const now = Date.now();
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+
+      switch (summaryFilter) {
+        case 'today': {
+          const endOfToday = getEndOfDay(today.getTime());
+          result = result.filter(todo => {
+            const todoDate = todo.dueDate ?? todo.createdAt;
+            return todoDate >= today.getTime() && todoDate <= endOfToday;
+          });
+          break;
+        }
+        case 'past-5-days': {
+          const fiveDaysAgo = new Date(today);
+          fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+          result = result.filter(todo => {
+            const todoDate = todo.dueDate ?? todo.createdAt;
+            return todoDate >= fiveDaysAgo.getTime() && todoDate <= now;
+          });
+          break;
+        }
+        case 'past-7-days': {
+          const sevenDaysAgo = new Date(today);
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          result = result.filter(todo => {
+            const todoDate = todo.dueDate ?? todo.createdAt;
+            return todoDate >= sevenDaysAgo.getTime() && todoDate <= now;
+          });
+          break;
+        }
+        case 'finished':
+          result = result.filter(todo => todo.completed);
+          break;
+        case 'unfinished':
+          result = result.filter(todo => !todo.completed);
+          break;
+        case 'custom-range':
+          if (customDateRange) {
+            const start = parseDateInput(customDateRange.start);
+            const end = getEndOfDay(parseDateInput(customDateRange.end));
+            result = result.filter(todo => {
+              const todoDate = todo.dueDate ?? todo.createdAt;
+              return todoDate >= start && todoDate <= end;
+            });
+          }
+          break;
+      }
+    } else {
+      // 原有的按日期筛选逻辑（当没有启用汇总筛选时）
       const startOfDay = getStartOfDay(selectedDateTimestamp);
       const endOfDay = getEndOfDay(selectedDateTimestamp);
-      return todoDate >= startOfDay && todoDate <= endOfDay;
-    })
-    .filter(todo => {
-      if (currentFilter === 'pending') return !todo.completed;
-      if (currentFilter === 'completed') return todo.completed;
-      return true;
-    })
-    .filter(todo => {
-      if (!selectedTagFilter) return true;
-      return todo.tags.includes(selectedTagFilter);
-    })
-    .sort((a, b) => {
-      const priorityDiff = priorityWeight[a.priority] - priorityWeight[b.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-      return a.order - b.order;
-    });
 
-  const addTodo = () => {
-    const text = inputValue.trim();
-    if (!text) return;
-
-    const now = Date.now();
-    const autoTags = analyzeTags(text);
-
-    const newTodo: Todo = {
-      id: now,
-      text,
-      completed: false,
-      createdAt: now,
-      dueDate: selectedDateTimestamp,
-      priority: 'Normal',
-      order: todos.length,
-      tags: autoTags,
-    };
-
-    setTodos([...todos, newTodo]);
-    setInputValue('');
-  };
-
-  const toggleTodo = (id: number) => {
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ));
-  };
-
-  const deleteTodo = (id: number) => {
-    setTodos(todos.filter(todo => todo.id !== id));
-  };
-
-  const updatePriority = (id: number, priority: 'very-necessary' | 'important' | 'Normal' | '一般') => {
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, priority } : todo
-    ));
-  };
-
-  // 拖拽排序相关函数
-  const handleDragStart = (e: React.DragEvent, id: number) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
-    // 设置拖拽图片，使其更清晰
-    const dragImage = document.createElement('div');
-    dragImage.style.width = '200px';
-    dragImage.style.height = '60px';
-    dragImage.style.background = '#f3efee';
-    dragImage.style.borderRadius = '12px';
-    document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 100, 30);
-    setTimeout(() => document.body.removeChild(dragImage), 0);
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedId === null) return;
-
-    const draggedIndex = filteredTodos.findIndex(t => t.id === draggedId);
-    if (draggedIndex === index || draggedIndex < 0) return;
-
-    const newTodos = [...todos];
-    const draggedTodo = filteredTodos[draggedIndex];
-    const targetTodo = filteredTodos[index];
-
-    if (draggedTodo && targetTodo) {
-      // 找到被拖拽任务和目标任务在原始数组中的索引
-      const draggedTodoOrigIndex = newTodos.findIndex(t => t.id === draggedTodo.id);
-      const targetTodoOrigIndex = newTodos.findIndex(t => t.id === targetTodo.id);
-
-      if (draggedTodoOrigIndex >= 0 && targetTodoOrigIndex >= 0) {
-        // 从原位置移除
-        const [removed] = newTodos.splice(draggedTodoOrigIndex, 1);
-        // 插入到目标位置
-        newTodos.splice(targetTodoOrigIndex, 0, removed);
-
-        // 重新计算所有任务的 order 值
-        newTodos.forEach((todo, i) => {
-          todo.order = i;
+      result = result
+        .filter(todo => {
+          const todoDate = todo.dueDate ?? todo.createdAt;
+          return todoDate >= startOfDay && todoDate <= endOfDay;
         });
-
-        setTodos(newTodos);
-        setDraggedId(draggedTodo.id);
-      }
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedId(null);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDraggedId(null);
-  };
-
-  const addTag = (todoId: number, tag: string) => {
-    if (!tag.trim()) return;
-    setTodos(todos.map(todo =>
-      todo.id === todoId && !todo.tags.includes(tag)
-        ? { ...todo, tags: [...todo.tags, tag] }
-        : todo
-    ));
-  };
-
-  const removeTag = (todoId: number, tag: string) => {
-    setTodos(todos.map(todo =>
-      todo.id === todoId
-        ? { ...todo, tags: todo.tags.filter(t => t !== tag) }
-        : todo
-    ));
-  };
-
-  const copyTodoToTomorrow = (todoId: number) => {
-    const todo = todos.find(t => t.id === todoId);
-    if (!todo) return;
-
-    const tomorrow = getStartOfDay(parseDateInput(selectedDate)) + 24 * 60 * 60 * 1000;
-
-    const newTodo: Todo = {
-      ...todo,
-      id: Date.now(),
-      dueDate: tomorrow,
-      completed: false,
-      order: todos.length,
-    };
-
-    setTodos([...todos, newTodo]);
-    setOpenMenuId(null);
-  };
-
-  const startEditing = (todo: Todo) => {
-    setEditingTodoId(todo.id);
-    setEditText(todo.text);
-  };
-
-  const saveEdit = (id: number) => {
-    if (!editText.trim()) return;
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, text: editText.trim() } : todo
-    ));
-    setEditingTodoId(null);
-    setEditText('');
-  };
-
-  const cancelEdit = () => {
-    setEditingTodoId(null);
-    setEditText('');
-  };
-
-  const allUsedTags = Array.from(new Set(todos.flatMap(t => t.tags)));
-  const completedCount = filteredTodos.filter(t => t.completed).length;
-
-  // 触屏滑动处理函数
-  const SWIPE_THRESHOLD = 100;
-  const MAX_SWIPE = 140;
-  const LONG_PRESS_DURATION = 400; // 长按触发拖拽的时间
-
-  const handleTouchStart = (e: React.TouchEvent, todoId: number, index: number, isCompleted: boolean) => {
-    if (editingTodoId !== null || swipeState.todoId !== null || touchDragState.todoId !== null) return;
-    const touch = e.touches[0];
-    const target = e.currentTarget as HTMLElement;
-    target.dataset.startX = String(touch.clientX);
-    target.dataset.startY = String(touch.clientY);
-    target.dataset.dragIndex = String(index);
-
-    // 清除之前的长按计时器
-    if (target.dataset.longPressTimer) {
-      clearTimeout(Number(target.dataset.longPressTimer));
     }
 
-    // 设置长按计时器，长按后触发拖拽模式
-    const timerId = setTimeout(() => {
-      if (!swipeState.todoId && !isCompleted) {
-        setTouchDragState({ todoId, fromIndex: index, offsetY: 0 });
-        target.dataset.dragStartY = String(touch.clientY);
-        // 震动反馈
-        if (navigator.vibrate) navigator.vibrate(50);
-      }
-    }, LONG_PRESS_DURATION);
-    target.dataset.longPressTimer = String(timerId);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent, todoId: number) => {
-    if (editingTodoId !== null) return;
-
-    const target = e.currentTarget as HTMLElement;
-    const startX = parseFloat(target.dataset.startX || '0');
-    const startY = parseFloat(target.dataset.startY || '0');
-    const touch = e.touches[0];
-    const diffX = touch.clientX - startX;
-    const diffY = touch.clientY - startY;
-
-    // 已经在拖拽模式（长按触发后）
-    if (touchDragState.todoId === todoId) {
-      // 清除长按计时器
-      if (target.dataset.longPressTimer) {
-        clearTimeout(Number(target.dataset.longPressTimer));
-        delete target.dataset.longPressTimer;
-      }
-
-      setTouchDragState(prev => ({ ...prev, offsetY: diffY }));
-
-      // 计算目标索引
-      const itemHeight = 80;
-      const fromIndex = parseInt(target.dataset.dragIndex || '0');
-      const indexDiff = Math.round(diffY / itemHeight);
-      const newIndex = Math.max(0, Math.min(filteredTodos.length - 1, fromIndex + indexDiff));
-
-      if (newIndex !== fromIndex && newIndex >= 0 && newIndex < filteredTodos.length) {
-        const fromTodo = filteredTodos[fromIndex];
-        const toTodo = filteredTodos[newIndex];
-
-        if (fromTodo && toTodo && fromTodo.id !== toTodo.id) {
-          const newTodos = [...todos];
-          const fromTodoOrigIndex = newTodos.findIndex(t => t.id === fromTodo.id);
-          const toTodoOrigIndex = newTodos.findIndex(t => t.id === toTodo.id);
-
-          if (fromTodoOrigIndex >= 0 && toTodoOrigIndex >= 0) {
-            // 从原位置移除
-            const [removed] = newTodos.splice(fromTodoOrigIndex, 1);
-            // 插入到目标位置
-            newTodos.splice(toTodoOrigIndex, 0, removed);
-
-            // 重新计算所有任务的 order 值
-            newTodos.forEach((todo, i) => {
-              todo.order = i;
-            });
-
-            setTodos(newTodos);
-          }
-
-          target.dataset.dragIndex = String(newIndex);
-          setTouchDragState({ todoId: fromTodo.id, fromIndex: newIndex, offsetY: 0 });
-          target.dataset.dragStartY = String(touch.clientY);
-        }
-      }
-      return;
+    // 标签筛选
+    if (selectedTagFilter) {
+      result = result.filter(todo => todo.tags.includes(selectedTagFilter));
     }
 
-    // 如果垂直移动明显，取消长按计时器（用户想滚动页面而非拖拽）
-    if (Math.abs(diffY) > Math.abs(diffX) * 1.5 && Math.abs(diffY) > 10) {
-      if (target.dataset.longPressTimer) {
-        clearTimeout(Number(target.dataset.longPressTimer));
-        delete target.dataset.longPressTimer;
-      }
-      return;
+    // 任务状态筛选（All/Todo/Done）
+    if (taskStatusFilter === 'pending') {
+      result = result.filter(todo => !todo.completed);
+    } else if (taskStatusFilter === 'completed') {
+      result = result.filter(todo => todo.completed);
     }
 
-    // 水平滑动 - 完成/删除
-    if (Math.abs(diffX) > 10) {
-      // 取消长按计时器
-      if (target.dataset.longPressTimer) {
-        clearTimeout(Number(target.dataset.longPressTimer));
-        delete target.dataset.longPressTimer;
-      }
-      e.preventDefault();
-    }
-
-    // 限制滑动距离
-    let offsetX = diffX;
-    if (Math.abs(offsetX) > MAX_SWIPE) {
-      offsetX = MAX_SWIPE * Math.sign(offsetX);
-    }
-
-    setSwipeState({
-      todoId,
-      offsetX,
-      isComplete: offsetX < -SWIPE_THRESHOLD,
-      isDelete: offsetX > SWIPE_THRESHOLD,
+    return result.sort((a, b) => {
+      const priorityWeight = { 'very-necessary': 0, 'important': 1, 'Normal': 2, '一般': 3 };
+      return priorityWeight[a.priority] - priorityWeight[b.priority] || a.order - b.order;
     });
-  };
+  }, [todos, selectedDateTimestamp, selectedTagFilter, summaryFilter, customDateRange]);
 
-  const handleTouchEnd = (todoId: number) => {
-    // 清除长按计时器
-    const target = document.querySelector(`[data-long-press-timer]`) as HTMLElement;
-    if (target?.dataset.longPressTimer) {
-      clearTimeout(Number(target.dataset.longPressTimer));
-      delete target.dataset.longPressTimer;
-    }
+  const allUsedTags = useMemo(() => Array.from(new Set(todos.flatMap(t => t.tags))), [todos]);
+  const completedCount = useMemo(() => filteredTodos.filter(t => t.completed).length, [filteredTodos]);
 
-    // 处理拖拽结束
-    if (touchDragState.todoId === todoId) {
-      if (navigator.vibrate) navigator.vibrate(50);
-      setTodos(prev => [...prev]);
-      setTouchDragState({ todoId: null, fromIndex: -1, offsetY: 0 });
-      return;
-    }
+  // 滑动拖拽逻辑
+  const {
+    draggedId,
+    swipeState,
+    touchDragState,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDrop,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+  } = useSwipeAndDrag({
+    filteredTodos,
+    editingTodoId,
+    onTodosChange: setTodos,
+  });
 
-    // 处理滑动完成/删除
-    if (swipeState.todoId === todoId) {
-      if (swipeState.isComplete) {
-        setTodos(todos.map(todo =>
-          todo.id === todoId ? { ...todo, completed: true } : todo
-        ));
-      } else if (swipeState.isDelete) {
-        setTodos(todos.filter(todo => todo.id !== todoId));
-      }
-      setSwipeState({ todoId: null, offsetX: 0, isComplete: false, isDelete: false });
-    }
-  };
+  // 为单个 todo 创建处理函数
+  const createTodoHandlers = useCallback((todo: Todo, index: number) => ({
+    onToggle: () => toggleTodo(todo.id),
+    onDelete: () => deleteTodo(todo.id),
+    onUpdatePriority: (priority: 'very-necessary' | 'important' | 'Normal' | '一般') => updatePriority(todo.id, priority),
+    onAddTag: (tag: string) => addTag(todo.id, tag),
+    onRemoveTag: (tag: string) => removeTag(todo.id, tag),
+    onTagClick: () => setSelectedTagFilter(selectedTagFilter === todo.tags[0] ? null : todo.tags[0]),
+    onMenuClick: () => setOpenMenuId(openMenuId === todo.id ? null : todo.id),
+    onCopyToTomorrow: () => copyTodoToTomorrow(todo.id),
+    onStartEditing: () => startEditing(todo),
+    onSaveEdit: (text: string) => saveEdit(todo.id, text),
+    onCancelEdit: () => cancelEdit(),
+    onSetEditingTags: (id: number | null) => setEditingTags(id),
+    onTouchStart: (e: React.TouchEvent) => handleTouchStart(e, todo.id, index, todo.completed),
+    onTouchMove: (e: React.TouchEvent) => handleTouchMove(e, todo.id),
+    onTouchEnd: () => handleTouchEnd(todo.id, () => toggleTodo(todo.id), () => deleteTodo(todo.id)),
+    onDragStart: (e: React.DragEvent) => handleDragStart(e, todo.id),
+    onDragOver: (e: React.DragEvent) => handleDragOver(e, index),
+    onDragEnd: () => handleDragEnd(),
+    getPriorityColor: () => getPriorityColor(todo.priority, index, filteredTodos.length),
+  }), [toggleTodo, deleteTodo, updatePriority, addTag, removeTag, selectedTagFilter, openMenuId, copyTodoToTomorrow, startEditing, saveEdit, cancelEdit, handleTouchStart, handleTouchMove, handleTouchEnd, handleDragStart, handleDragOver, handleDragEnd, filteredTodos.length, copyTodoToDate]);
+
+  // 处理拖拽到日期
+  const handleDateDrop = useCallback((dateStr: string, todoId: number) => {
+    copyTodoToDate(dateStr, todoId);
+  }, [copyTodoToDate]);
 
   return (
     <div className="container">
@@ -464,259 +302,73 @@ function App() {
       <DatePicker
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
-        hasTaskDates={todos.map(t => t.dueDate ?? t.createdAt)}
+        hasTaskDates={pendingTaskDates}
+        onDateDrop={handleDateDrop}
+        hideDateInput={true}
       />
 
-      <div className="date-label">
-        {getFriendlyDateLabel(selectedDateTimestamp)}
-      </div>
-
-      <div className="filter-tabs">
-        <button
-          className={`filter-tab ${currentFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setCurrentFilter('all')}
-        >
-          All
-        </button>
-        <button
-          className={`filter-tab ${currentFilter === 'pending' ? 'active' : ''}`}
-          onClick={() => setCurrentFilter('pending')}
-        >
-          To Do
-        </button>
-        <button
-          className={`filter-tab ${currentFilter === 'completed' ? 'active' : ''}`}
-          onClick={() => setCurrentFilter('completed')}
-        >
-          Done
-        </button>
-      </div>
-
-      {allUsedTags.length > 0 && (
-        <div className="tag-filter-tabs">
-          <button
-            className={`tag-filter-tab ${selectedTagFilter === null ? 'active' : ''}`}
-            onClick={() => setSelectedTagFilter(null)}
-          >
-            All
-          </button>
-          {allUsedTags.map(tag => (
-            <button
-              key={tag}
-              className={`tag-filter-tab ${selectedTagFilter === tag ? 'active' : ''}`}
-              onClick={() => setSelectedTagFilter(tag)}
-              style={{
-                borderColor: selectedTagFilter === tag ? getTagColor(tag) : undefined,
-                color: selectedTagFilter === tag ? getTagColor(tag) : undefined
-              }}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="input-group">
-        <input
-          type="text"
-          id="todo-input"
-          placeholder="Write a task..."
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addTodo()}
+      <div className="summary-filter-container">
+        <SummaryFilterTabs
+          currentSummaryFilter={summaryFilter}
+          onSummaryFilterChange={setSummaryFilter}
         />
-        <button id="add-btn" onClick={addTodo}>Add</button>
       </div>
+
+      <div className="date-label">
+        {summaryFilter === 'all' ? getFriendlyDateLabel(selectedDateTimestamp) : getSummaryLabel(summaryFilter)}
+      </div>
+
+      <TaskStatusFilterTabs
+        currentTaskStatusFilter={taskStatusFilter}
+        onTaskStatusFilterChange={setTaskStatusFilter}
+      />
+
+      <TagFilterTabs
+        allUsedTags={allUsedTags}
+        selectedTagFilter={selectedTagFilter}
+        onTagFilterChange={setSelectedTagFilter}
+      />
+
+      <TodoForm
+        inputValue={inputValue}
+        onInputChange={setInputValue}
+        onAdd={addTodo}
+      />
 
       <ul className="todo-list" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
         {filteredTodos.length === 0 ? (
           <li className="empty-state">
-            {currentFilter === 'all' && selectedTagFilter === null && 'No tasks yet. Add one above!'}
-            {currentFilter === 'pending' && selectedTagFilter === null && 'All caught up!'}
-            {currentFilter === 'completed' && selectedTagFilter === null && 'No completed tasks yet'}
+            {summaryFilter === 'all' && selectedTagFilter === null && 'No tasks yet. Add one above!'}
+            {summaryFilter === 'past-5-days' && 'No tasks in the past 5 days'}
+            {summaryFilter === 'past-7-days' && 'No tasks in the past 7 days'}
+            {summaryFilter === 'finished' && 'No completed tasks yet'}
+            {summaryFilter === 'unfinished' && 'All tasks completed!'}
             {selectedTagFilter !== null && `No tasks with tag "${selectedTagFilter}"`}
-            {currentFilter !== 'all' && selectedTagFilter !== null && 'No matching tasks'}
           </li>
         ) : (
           filteredTodos.map((todo, index) => {
+            const handlers = createTodoHandlers(todo, index);
             const isSwiping = swipeState.todoId === todo.id;
             const isDragging = touchDragState.todoId === todo.id;
             const swipeOffset = isSwiping ? swipeState.offsetX : 0;
             const dragOffset = isDragging ? touchDragState.offsetY : 0;
 
             return (
-              <li
+              <TodoItem
                 key={todo.id}
-                className={`todo-item ${todo.completed ? 'completed' : ''} ${editingTodoId === todo.id ? 'editing' : ''} ${isSwiping ? 'swiping' : ''} ${isDragging ? 'dragging' : ''} ${draggedId !== null && draggedId !== todo.id ? 'drag-over' : ''}`}
-                draggable={editingTodoId === null && !isSwiping && !todo.completed && !isDragging}
-                onDragStart={(e) => editingTodoId === null && !isSwiping && !todo.completed && handleDragStart(e, todo.id)}
-                onDragOver={(e) => editingTodoId === null && !isSwiping && !todo.completed && handleDragOver(e, index)}
-                onDragEnd={handleDragEnd}
-                onTouchStart={(e) => {
-                  if (editingTodoId === null && !todo.completed) {
-                    handleTouchStart(e, todo.id, index, todo.completed);
-                  }
-                }}
-                onTouchMove={(e) => {
-                  if (editingTodoId === null && !todo.completed) {
-                    handleTouchMove(e, todo.id);
-                  }
-                }}
-                onTouchEnd={() => {
-                  if (editingTodoId === null && !todo.completed) {
-                    handleTouchEnd(todo.id);
-                  }
-                }}
-                style={{
-                  borderLeft: `4px solid ${getPriorityColor(todo.priority, index, filteredTodos.length)}`,
-                  transform: swipeOffset !== 0
-                    ? `translateX(${swipeOffset}px)`
-                    : dragOffset !== 0
-                      ? `translateY(${dragOffset}px) scale(1.02)`
-                      : undefined,
-                  transition: isSwiping || isDragging ? 'none' : 'transform 0.2s ease',
-                  zIndex: swipeOffset !== 0 || dragOffset !== 0 ? 10 : undefined,
-                  position: swipeOffset !== 0 || dragOffset !== 0 ? 'relative' : undefined,
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  startEditing(todo);
-                }}
-              >
-                {/* 滑动提示背景 */}
-                {editingTodoId === null && !todo.completed && (
-                  <>
-                    <div className={`swipe-action swipe-delete ${swipeOffset > 20 ? 'visible' : ''}`}>
-                      <span>删除</span>
-                    </div>
-                    <div className={`swipe-action swipe-complete ${swipeOffset < -20 ? 'visible' : ''}`}>
-                      <span>完成</span>
-                    </div>
-                  </>
-                )}
-                {editingTodoId === todo.id ? (
-                  <div className="edit-mode" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      className="edit-input"
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEdit(todo.id);
-                        if (e.key === 'Escape') cancelEdit();
-                      }}
-                      autoFocus
-                    />
-                    <div className="edit-actions">
-                      <button className="edit-save-btn" onClick={() => saveEdit(todo.id)}>保存</button>
-                      <button className="edit-cancel-btn" onClick={() => cancelEdit()}>取消</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="checkbox" onClick={() => toggleTodo(todo.id)}></div>
-                    <div className="todo-content">
-                      <span className="todo-text">{todo.text}</span>
-                      <div className="todo-meta">
-                        <span className="todo-date">{formatDisplayDate(todo.dueDate ?? todo.createdAt)}</span>
-                        <select
-                          className="priority-select"
-                          value={todo.priority}
-                          onChange={(e) => updatePriority(todo.id, e.target.value as 'very-necessary' | 'important' | 'Normal' | '一般')}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <option value="very-necessary">🔥 Very Necessary</option>
-                          <option value="important">⚡ Important</option>
-                          <option value="Normal">📌 Normal</option>
-                          <option value="一般">💧 一般</option>
-                        </select>
-                      </div>
-                      <div className="todo-tags">
-                        {todo.tags.map(tag => (
-                          <TagBadge
-                            key={tag}
-                            tag={tag}
-                            removable={editingTags === todo.id}
-                            onRemove={() => removeTag(todo.id, tag)}
-                            active={selectedTagFilter === tag}
-                            onClick={() => setSelectedTagFilter(tag)}
-                          />
-                        ))}
-                        {editingTags === todo.id ? (
-                          <div className="tag-input-container">
-                            <select
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  addTag(todo.id, e.target.value);
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <option value="">+ 添加标签</option>
-                              {AVAILABLE_TAGS.filter(t => !todo.tags.includes(t)).map(tag => (
-                                <option key={tag} value={tag}>{tag}</option>
-                              ))}
-                            </select>
-                            <button
-                              className="close-tag-editor"
-                              onClick={() => setEditingTags(null)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className="add-tag-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingTags(todo.id);
-                            }}
-                          >
-                            +
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="todo-actions">
-                      <button
-                        className="menu-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(openMenuId === todo.id ? null : todo.id);
-                        }}
-                      >
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </button>
-                      {openMenuId === todo.id && (
-                        <div className="menu-dropdown" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            className="menu-item copy"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              copyTodoToTomorrow(todo.id);
-                            }}
-                          >
-                            复制到明天
-                          </button>
-                          <button
-                            className="menu-item delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTodo(todo.id);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            删除
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </li>
+                todo={todo}
+                isDragging={isDragging}
+                isSwiping={isSwiping}
+                swipeOffset={swipeOffset}
+                dragOffset={dragOffset}
+                editingTags={editingTags}
+                editingTodoId={editingTodoId}
+                editText={editText}
+                openMenuId={openMenuId}
+                selectedTagFilter={selectedTagFilter}
+                draggedId={draggedId}
+                {...handlers}
+              />
             );
           })
         )}

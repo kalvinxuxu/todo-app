@@ -753,3 +753,185 @@ body {
     transform: translateY(0);
   }
 }
+
+/* 日历视图样式 */
+.date-picker-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 12px;
+}
+
+.date-picker-input-wrapper .date-picker-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.date-picker-input-wrapper .date-picker-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #f3efee;
+  color: #222;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.calendar-view {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 0 16px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.calendar-header-cell {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9f9f9f;
+  padding: 6px 0;
+}
+
+.calendar-header-cell.weekend {
+  color: #e57373;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  min-height: 44px;
+}
+
+.calendar-day:hover {
+  background: #f5f5f5;
+}
+
+.calendar-day.selected {
+  background: #393433;
+  color: #fff;
+}
+
+.calendar-day.today {
+  border: 2px solid #ef4444;
+}
+
+.calendar-day.today.selected {
+  border-color: #fff;
+}
+
+.calendar-day .day-number {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.calendar-day .task-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-top: 2px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+/* 汇总筛选样式 */
+.summary-filter-container {
+  padding: 0 16px;
+  margin-bottom: 12px;
+}
+
+.summary-filter-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.summary-filter-tab {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-radius: 16px;
+  transition: all 0.2s;
+}
+
+.summary-filter-tab:hover {
+  border-color: #393433;
+  color: #393433;
+}
+
+.summary-filter-tab.active {
+  background: #393433;
+  border-color: #393433;
+  color: #fff;
+}
+
+/* 任务状态筛选样式 */
+.task-status-filter-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+}
+
+.task-status-filter-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.task-status-filter-tab:hover {
+  border-color: #393433;
+  color: #393433;
+}
+
+.task-status-filter-tab.active {
+  background: #393433;
+  border-color: #393433;
+  color: #fff;
+}
