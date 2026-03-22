@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { getTagColor } from '../utils/tagAnalyzer';
 
 interface TagBadgeProps {
@@ -8,7 +9,7 @@ interface TagBadgeProps {
   active?: boolean;
 }
 
-export function TagBadge({ tag, onClick, removable, onRemove, active }: TagBadgeProps) {
+export const TagBadge = memo(({ tag, onClick, removable, onRemove, active }: TagBadgeProps) => {
   return (
     <span
       className={`tag-badge ${active ? 'active' : ''}`}
@@ -29,4 +30,6 @@ export function TagBadge({ tag, onClick, removable, onRemove, active }: TagBadge
       )}
     </span>
   );
-}
+});
+
+TagBadge.displayName = 'TagBadge';

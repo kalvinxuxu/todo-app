@@ -63,7 +63,6 @@ TagFilterTabs.displayName = 'TagFilterTabs';
 // 新增：汇总筛选组件
 export type SummaryFilterType =
   | 'all'
-  | 'custom-range'
   | 'past-5-days'
   | 'past-7-days'
   | 'finished'
@@ -73,7 +72,6 @@ export type SummaryFilterType =
 interface SummaryFilterTabsProps {
   currentSummaryFilter: SummaryFilterType;
   onSummaryFilterChange: (filter: SummaryFilterType) => void;
-  onCustomRangeChange?: (startDate: string, endDate: string) => void;
 }
 
 export const SummaryFilterTabs = memo(({

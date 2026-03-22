@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 
 interface ContextData {
   used_pct: number;
@@ -6,13 +6,12 @@ interface ContextData {
   timestamp: number;
 }
 
-export function TokenStatus() {
+export const TokenStatus = memo(() => {
   const [context, setContext] = useState<ContextData | null>(null);
 
   useEffect(() => {
     const fetchContext = async () => {
       try {
-        // Read from Claude Code's bridge file in tmp directory
         const response = await fetch('/claude-ctx.json');
         if (response.ok) {
           const data = await response.json();
@@ -31,12 +30,11 @@ export function TokenStatus() {
 
   if (!context) return null;
 
-  // 根据使用率显示不同颜色
   const getColor = (pct: number) => {
-    if (pct < 50) return '#4ade80'; // green
-    if (pct < 65) return '#facc15'; // yellow
-    if (pct < 80) return '#fb923c'; // orange
-    return '#ef4444'; // red
+    if (pct < 50) return '#4ade80';
+    if (pct < 65) return '#facc15';
+    if (pct < 80) return '#fb923c';
+    return '#ef4444';
   };
 
   return (
@@ -44,4 +42,6 @@ export function TokenStatus() {
       Context: {context.used_pct}%
     </div>
   );
-}
+});
+
+TokenStatus.displayName = 'TokenStatus';

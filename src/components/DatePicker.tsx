@@ -1,5 +1,4 @@
 import { memo, useMemo } from 'react';
-import { getTagColor } from '../utils/tagAnalyzer';
 
 interface DatePickerProps {
   selectedDate: string;

@@ -66,11 +66,11 @@ function getPriorityColor(priority: 'very-necessary' | 'important' | 'Normal' | 
 // 获取汇总筛选标签显示
 function getSummaryLabel(filter: SummaryFilterType): string {
   switch (filter) {
+    case 'today': return '今日';
     case 'past-5-days': return '过去 5 天';
     case 'past-7-days': return '过去 7 天';
     case 'finished': return '已完成任务';
     case 'unfinished': return '未完成任务';
-    case 'custom-range': return '自定义日期范围';
     default: return '全部任务';
   }
 }
@@ -97,7 +97,6 @@ function App() {
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilterType>('all');
-  const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string } | null>(null);
   const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
   // 使用防抖同步 localStorage，避免频繁写入
@@ -203,16 +202,6 @@ function App() {
         case 'unfinished':
           result = result.filter(todo => !todo.completed);
           break;
-        case 'custom-range':
-          if (customDateRange) {
-            const start = parseDateInput(customDateRange.start);
-            const end = getEndOfDay(parseDateInput(customDateRange.end));
-            result = result.filter(todo => {
-              const todoDate = todo.dueDate ?? todo.createdAt;
-              return todoDate >= start && todoDate <= end;
-            });
-          }
-          break;
       }
     } else {
       // 原有的按日期筛选逻辑（当没有启用汇总筛选时）
@@ -242,7 +231,7 @@ function App() {
       const priorityWeight = { 'very-necessary': 0, 'important': 1, 'Normal': 2, '一般': 3 };
       return priorityWeight[a.priority] - priorityWeight[b.priority] || a.order - b.order;
     });
-  }, [todos, selectedDateTimestamp, selectedTagFilter, summaryFilter, customDateRange]);
+  }, [todos, selectedDateTimestamp, selectedTagFilter, summaryFilter, taskStatusFilter]);
 
   const allUsedTags = useMemo(() => Array.from(new Set(todos.flatMap(t => t.tags))), [todos]);
   const completedCount = useMemo(() => filteredTodos.filter(t => t.completed).length, [filteredTodos]);
