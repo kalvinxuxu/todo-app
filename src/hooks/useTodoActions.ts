@@ -129,6 +129,21 @@ export function useTodoActions({
     setTodos(prev => [...prev, newTodo]);
   }, [todos, setTodos]);
 
+  // 移动任务到指定日期（修改原任务的日期）
+  const moveTodoToDate = useCallback((dateStr: string, todoId: number) => {
+    const todo = todos.find(t => t.id === todoId);
+    if (!todo) return;
+
+    const targetDate = new Date(dateStr);
+    targetDate.setHours(0, 0, 0, 0);
+
+    setTodos(prev => prev.map(t =>
+      t.id === todoId
+        ? { ...t, dueDate: targetDate.getTime() }
+        : t
+    ));
+  }, [todos, setTodos]);
+
   const startEditing = useCallback((todo: Todo) => {
     setEditingTodoId(todo.id);
     setEditText(todo.text);
@@ -155,6 +170,7 @@ export function useTodoActions({
     removeTag,
     copyTodoToTomorrow,
     copyTodoToDate,
+    moveTodoToDate,
     startEditing,
     saveEdit,
     cancelEdit,

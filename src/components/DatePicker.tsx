@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useCallback } from 'react';
 
 interface DatePickerProps {
   selectedDate: string;
@@ -15,18 +15,21 @@ interface CalendarDayProps {
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  isDragOver: boolean;
 }
 
-const CalendarDay = memo(({ date, isSelected, hasTask, onClick, onDrop, onDragOver }: CalendarDayProps) => {
+const CalendarDay = memo(({ date, isSelected, hasTask, onClick, onDrop, onDragOver, onDragLeave, isDragOver }: CalendarDayProps) => {
   const day = date.getDate();
   const isToday = new Date().toDateString() === date.toDateString();
 
   return (
     <div
-      className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+      className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isDragOver ? 'drag-over' : ''}`}
       onClick={onClick}
       onDrop={onDrop}
       onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
     >
       <span className="day-number">{day}</span>
       {hasTask && <span className="task-dot" />}
@@ -37,6 +40,8 @@ const CalendarDay = memo(({ date, isSelected, hasTask, onClick, onDrop, onDragOv
 CalendarDay.displayName = 'CalendarDay';
 
 export const DatePicker = memo(({ selectedDate, onDateChange, hasTaskDates = [], onDateDrop, hideDateInput = false }: DatePickerProps) => {
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onDateChange(e.target.value);
   };
@@ -84,7 +89,7 @@ export const DatePicker = memo(({ selectedDate, onDateChange, hasTaskDates = [],
   };
 
   // 处理日期拖拽放置
-  const handleDrop = (e: React.DragEvent, date: Date) => {
+  const handleDrop = useCallback((e: React.DragEvent, date: Date) => {
     e.preventDefault();
     if (onDateDrop) {
       const todoId = parseInt(e.dataTransfer.getData('text/plain'), 10);
@@ -93,11 +98,20 @@ export const DatePicker = memo(({ selectedDate, onDateChange, hasTaskDates = [],
         onDateDrop(dateStr, todoId);
       }
     }
-  };
+    setDragOverDate(null);
+  }, [onDateDrop]);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent, date: Date) => {
     e.preventDefault();
-  };
+    e.dataTransfer.dropEffect = 'move';
+    const dateStr = date.toISOString().split('T')[0];
+    setDragOverDate(dateStr);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    setDragOverDate(null);
+  }, []);
 
   const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -136,6 +150,7 @@ export const DatePicker = memo(({ selectedDate, onDateChange, hasTaskDates = [],
           {calendarDays.map((date, index) => {
             const dateStr = date.toISOString().split('T')[0];
             const isSelected = dateStr === selectedDate;
+            const isDragOver = dragOverDate === dateStr;
 
             return (
               <CalendarDay
@@ -143,9 +158,11 @@ export const DatePicker = memo(({ selectedDate, onDateChange, hasTaskDates = [],
                 date={date}
                 isSelected={isSelected}
                 hasTask={hasPendingTask(date)}
+                isDragOver={isDragOver}
                 onClick={() => onDateChange(dateStr)}
                 onDrop={(e) => handleDrop(e, date)}
-                onDragOver={handleDragOver}
+                onDragOver={(e) => handleDragOver(e, date)}
+                onDragLeave={(e) => handleDragLeave(e, date)}
               />
             );
           })}

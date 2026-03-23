@@ -22,6 +22,7 @@ body {
   max-width: 600px;
   padding: 16px;
   padding-bottom: 100px;
+  margin: 0 auto;
 }
 
 /* 移动端优化 */
@@ -42,6 +43,8 @@ body {
 
 .container {
   width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
   position: relative;
 }
 
@@ -161,8 +164,9 @@ body {
 }
 
 .tag-filter-tab.active {
-  background: rgba(57, 52, 51, 0.1);
-  font-weight: 600;
+  background: #393433;
+  border-color: #393433;
+  color: #fff;
 }
 
 .input-group {
@@ -832,6 +836,11 @@ body {
   background: #f5f5f5;
 }
 
+.calendar-day.drag-over {
+  background: #e3f2fd;
+  border: 2px dashed #1565c0;
+}
+
 .calendar-day.selected {
   background: #393433;
   color: #fff;
@@ -870,19 +879,19 @@ body {
   }
 }
 
-/* 汇总筛选样式 */
-.summary-filter-container {
+/* 时间范围筛选样式 */
+.time-range-filter-container {
   padding: 0 16px;
   margin-bottom: 12px;
 }
 
-.summary-filter-tabs {
+.time-range-filter-tabs {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.summary-filter-tab {
+.time-range-filter-tab {
   padding: 6px 12px;
   background: transparent;
   border: 1px solid #e0e0e0;
@@ -894,12 +903,12 @@ body {
   transition: all 0.2s;
 }
 
-.summary-filter-tab:hover {
+.time-range-filter-tab:hover {
   border-color: #393433;
   color: #393433;
 }
 
-.summary-filter-tab.active {
+.time-range-filter-tab.active {
   background: #393433;
   border-color: #393433;
   color: #fff;
@@ -934,4 +943,309 @@ body {
   background: #393433;
   border-color: #393433;
   color: #fff;
+}
+
+/* 日历和侧边栏布局 */
+.calendar-sidebar-container {
+  display: flex;
+  gap: 16px;
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+.calendar-sidebar-container > .date-picker-container {
+  flex: 1;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 200px;
+  flex-shrink: 0;
+}
+
+/* 天气组件样式 */
+.weather-widget {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  min-height: 100px;
+}
+
+.weather-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9f9f9f;
+  font-size: 13px;
+  min-height: 60px;
+}
+
+.weather-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.weather-icon {
+  width: 48px;
+  height: 48px;
+  color: #f59e0b;
+}
+
+.weather-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.weather-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weather-temp {
+  font-size: 24px;
+  font-weight: 600;
+  color: #121212;
+}
+
+.weather-condition {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 专注计时器样式 */
+.focus-timer {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.focus-timer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.focus-timer-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+}
+
+.edit-time-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #9f9f9f;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.edit-time-btn:hover {
+  background: #f3efee;
+  color: #393433;
+}
+
+.edit-time-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.custom-time-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.time-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.time-preset-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.15s;
+}
+
+.time-preset-btn:hover {
+  border-color: #393433;
+  color: #393433;
+}
+
+.time-preset-btn.active {
+  background: #393433;
+  border-color: #393433;
+  color: #fff;
+}
+
+.custom-time-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 13px;
+}
+
+.custom-minutes-input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  font-family: inherit;
+  outline: none;
+}
+
+.custom-minutes-input:focus {
+  border-color: #393433;
+}
+
+.done-editing-btn {
+  padding: 8px;
+  background: #393433;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.done-editing-btn:hover {
+  opacity: 0.9;
+}
+
+.timer-display {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.timer-progress-ring {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+
+.progress-ring-svg {
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+}
+
+.progress-ring-background {
+  fill: none;
+  stroke: #f3efee;
+  stroke-width: 8;
+}
+
+.progress-ring-circle {
+  fill: none;
+  stroke: #393433;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 326.72;
+  stroke-dashoffset: 326.72;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.timer-time {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: 600;
+  color: #121212;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.timer-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: #393433;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.timer-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.timer-btn:hover {
+  opacity: 0.9;
+}
+
+.timer-btn.pause {
+  background: #f59e0b;
+}
+
+.timer-btn.reset {
+  background: #f3efee;
+  color: #666;
+}
+
+.timer-btn.reset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .calendar-sidebar-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+  }
+
+  .weather-widget,
+  .focus-timer {
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    flex-direction: column;
+  }
 }

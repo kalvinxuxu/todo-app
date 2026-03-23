@@ -6,17 +6,17 @@ import {
   TodoItem,
   TagFilterTabs,
   TodoForm,
-  SummaryFilterTabs,
-  type SummaryFilterType,
+  TimeRangeFilterTabs,
+  type TimeRangeFilter,
   TaskStatusFilterTabs,
+  type TaskStatusFilter,
+  WeatherWidget,
+  FocusTimer,
 } from './components'
 import { useSwipeAndDrag, useTodoActions } from './hooks'
 import {
   formatDateForInput,
   parseDateInput,
-  getStartOfDay,
-  getEndOfDay,
-  getFriendlyDateLabel
 } from './utils/dateUtils'
 
 interface Todo {
@@ -63,16 +63,60 @@ function getPriorityColor(priority: 'very-necessary' | 'important' | 'Normal' | 
   return `rgb(${darken(base.r)}, ${darken(base.g)}, ${darken(base.b)})`;
 }
 
-// 获取汇总筛选标签显示
-function getSummaryLabel(filter: SummaryFilterType): string {
+// 获取时间范围筛选的日期范围
+function getTimeRangeDateRange(timeRange: TimeRangeFilter): { start: number; end: number } | null {
+  const now = Date.now();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  switch (timeRange) {
+    case 'today': {
+      const endOfToday = new Date(today);
+      endOfToday.setHours(23, 59, 59, 999);
+      return { start: today.getTime(), end: endOfToday.getTime() };
+    }
+    case 'past-5-days': {
+      const fiveDaysAgo = new Date(today);
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      return { start: fiveDaysAgo.getTime(), end: now };
+    }
+    case 'past-7-days': {
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return { start: sevenDaysAgo.getTime(), end: now };
+    }
+    case 'all':
+      return null;
+  }
+}
+
+// 获取友好的时间范围描述
+function getTimeRangeLabel(filter: TimeRangeFilter): string {
   switch (filter) {
     case 'today': return '今日';
     case 'past-5-days': return '过去 5 天';
     case 'past-7-days': return '过去 7 天';
-    case 'finished': return '已完成任务';
-    case 'unfinished': return '未完成任务';
-    default: return '全部任务';
+    default: return '全部';
   }
+}
+
+// 格式化日期显示
+function formatDateForDisplay(timestamp: number): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isToday = date.toDateString() === today.toDateString();
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isToday) return '今日';
+  if (isYesterday) return '昨日';
+
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
+  return `${month}月${day}日 ${weekday}`;
 }
 
 function App() {
@@ -96,8 +140,31 @@ function App() {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
-  const [summaryFilter, setSummaryFilter] = useState<SummaryFilterType>('all');
-  const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [timeRangeFilter, setTimeRangeFilter] = useState<TimeRangeFilter>('today');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>('all');
+  const [isCustomDateMode, setIsCustomDateMode] = useState(false);
+
+  // 处理日历日期切换
+  const handleDateChange = useCallback((date: string) => {
+    setSelectedDate(date);
+    // 当用户点击日历日期时，切换到自定义日期模式
+    if (!isCustomDateMode) {
+      setIsCustomDateMode(true);
+      setTimeRangeFilter('all');
+    }
+  }, [isCustomDateMode]);
+
+  // 当时间范围筛选改变时，退出自定义日期模式
+  useEffect(() => {
+    if (timeRangeFilter !== 'all') {
+      setIsCustomDateMode(false);
+      // 如果切换到"今日"，自动将选中日期切换到今天
+      if (timeRangeFilter === 'today') {
+        const todayStr = formatDateForInput(Date.now());
+        setSelectedDate(todayStr);
+      }
+    }
+  }, [timeRangeFilter]);
 
   // 使用防抖同步 localStorage，避免频繁写入
   const todosRef = useRef(todos);
@@ -148,6 +215,7 @@ function App() {
     saveEdit,
     cancelEdit,
     copyTodoToDate,
+    moveTodoToDate,
   } = useTodoActions({
     todos,
     setTodos,
@@ -163,64 +231,31 @@ function App() {
   const filteredTodos = useMemo(() => {
     let result = todos;
 
-    // 根据汇总筛选类型过滤
-    if (summaryFilter !== 'all') {
-      const now = Date.now();
-      const today = new Date(now);
-      today.setHours(0, 0, 0, 0);
-
-      switch (summaryFilter) {
-        case 'today': {
-          const endOfToday = getEndOfDay(today.getTime());
-          result = result.filter(todo => {
-            const todoDate = todo.dueDate ?? todo.createdAt;
-            return todoDate >= today.getTime() && todoDate <= endOfToday;
-          });
-          break;
-        }
-        case 'past-5-days': {
-          const fiveDaysAgo = new Date(today);
-          fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-          result = result.filter(todo => {
-            const todoDate = todo.dueDate ?? todo.createdAt;
-            return todoDate >= fiveDaysAgo.getTime() && todoDate <= now;
-          });
-          break;
-        }
-        case 'past-7-days': {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          result = result.filter(todo => {
-            const todoDate = todo.dueDate ?? todo.createdAt;
-            return todoDate >= sevenDaysAgo.getTime() && todoDate <= now;
-          });
-          break;
-        }
-        case 'finished':
-          result = result.filter(todo => todo.completed);
-          break;
-        case 'unfinished':
-          result = result.filter(todo => !todo.completed);
-          break;
-      }
+    // 1. 自定义日期模式：显示选中日期的任务
+    if (isCustomDateMode) {
+      const selectedDateStart = selectedDateTimestamp;
+      const selectedDateEnd = selectedDateTimestamp + 24 * 60 * 60 * 1000 - 1;
+      result = result.filter(todo => {
+        const todoDate = todo.dueDate ?? todo.createdAt;
+        return todoDate >= selectedDateStart && todoDate <= selectedDateEnd;
+      });
     } else {
-      // 原有的按日期筛选逻辑（当没有启用汇总筛选时）
-      const startOfDay = getStartOfDay(selectedDateTimestamp);
-      const endOfDay = getEndOfDay(selectedDateTimestamp);
-
-      result = result
-        .filter(todo => {
+      // 2. 时间范围筛选
+      const dateRange = getTimeRangeDateRange(timeRangeFilter);
+      if (dateRange) {
+        result = result.filter(todo => {
           const todoDate = todo.dueDate ?? todo.createdAt;
-          return todoDate >= startOfDay && todoDate <= endOfDay;
+          return todoDate >= dateRange.start && todoDate <= dateRange.end;
         });
+      }
     }
 
-    // 标签筛选
+    // 3. 标签筛选
     if (selectedTagFilter) {
       result = result.filter(todo => todo.tags.includes(selectedTagFilter));
     }
 
-    // 任务状态筛选（All/Todo/Done）
+    // 4. 任务状态筛选
     if (taskStatusFilter === 'pending') {
       result = result.filter(todo => !todo.completed);
     } else if (taskStatusFilter === 'completed') {
@@ -231,7 +266,7 @@ function App() {
       const priorityWeight = { 'very-necessary': 0, 'important': 1, 'Normal': 2, '一般': 3 };
       return priorityWeight[a.priority] - priorityWeight[b.priority] || a.order - b.order;
     });
-  }, [todos, selectedDateTimestamp, selectedTagFilter, summaryFilter, taskStatusFilter]);
+  }, [todos, isCustomDateMode, timeRangeFilter, selectedDateTimestamp, selectedTagFilter, taskStatusFilter]);
 
   const allUsedTags = useMemo(() => Array.from(new Set(todos.flatMap(t => t.tags))), [todos]);
   const completedCount = useMemo(() => filteredTodos.filter(t => t.completed).length, [filteredTodos]);
@@ -277,10 +312,10 @@ function App() {
     getPriorityColor: () => getPriorityColor(todo.priority, index, filteredTodos.length),
   }), [toggleTodo, deleteTodo, updatePriority, addTag, removeTag, selectedTagFilter, openMenuId, copyTodoToTomorrow, startEditing, saveEdit, cancelEdit, handleTouchStart, handleTouchMove, handleTouchEnd, handleDragStart, handleDragOver, handleDragEnd, filteredTodos.length, copyTodoToDate]);
 
-  // 处理拖拽到日期
+  // 处理拖拽到日期（移动任务到新日期）
   const handleDateDrop = useCallback((dateStr: string, todoId: number) => {
-    copyTodoToDate(dateStr, todoId);
-  }, [copyTodoToDate]);
+    moveTodoToDate(dateStr, todoId);
+  }, [moveTodoToDate]);
 
   return (
     <div className="container">
@@ -288,23 +323,30 @@ function App() {
         <h1 className="title">Personal</h1>
       </div>
 
-      <DatePicker
-        selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
-        hasTaskDates={pendingTaskDates}
-        onDateDrop={handleDateDrop}
-        hideDateInput={true}
-      />
+      {/* 日历和侧边工具区域 */}
+      <div className="calendar-sidebar-container">
+        <DatePicker
+          selectedDate={selectedDate}
+          onDateChange={handleDateChange}
+          hasTaskDates={pendingTaskDates}
+          onDateDrop={handleDateDrop}
+          hideDateInput={true}
+        />
+        <div className="sidebar">
+          <WeatherWidget />
+          <FocusTimer />
+        </div>
+      </div>
 
-      <div className="summary-filter-container">
-        <SummaryFilterTabs
-          currentSummaryFilter={summaryFilter}
-          onSummaryFilterChange={setSummaryFilter}
+      <div className="time-range-filter-container">
+        <TimeRangeFilterTabs
+          currentTimeRangeFilter={timeRangeFilter}
+          onTimeRangeFilterChange={setTimeRangeFilter}
         />
       </div>
 
       <div className="date-label">
-        {summaryFilter === 'all' ? getFriendlyDateLabel(selectedDateTimestamp) : getSummaryLabel(summaryFilter)}
+        {isCustomDateMode ? formatDateForDisplay(selectedDateTimestamp) : getTimeRangeLabel(timeRangeFilter)}
       </div>
 
       <TaskStatusFilterTabs
@@ -327,12 +369,14 @@ function App() {
       <ul className="todo-list" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
         {filteredTodos.length === 0 ? (
           <li className="empty-state">
-            {summaryFilter === 'all' && selectedTagFilter === null && 'No tasks yet. Add one above!'}
-            {summaryFilter === 'past-5-days' && 'No tasks in the past 5 days'}
-            {summaryFilter === 'past-7-days' && 'No tasks in the past 7 days'}
-            {summaryFilter === 'finished' && 'No completed tasks yet'}
-            {summaryFilter === 'unfinished' && 'All tasks completed!'}
-            {selectedTagFilter !== null && `No tasks with tag "${selectedTagFilter}"`}
+            {isCustomDateMode && '这天没有任务'}
+            {timeRangeFilter === 'today' && '今日没有任务'}
+            {timeRangeFilter === 'past-5-days' && '过去 5 天没有任务'}
+            {timeRangeFilter === 'past-7-days' && '过去 7 天没有任务'}
+            {timeRangeFilter === 'all' && selectedTagFilter === null && taskStatusFilter === 'all' && !isCustomDateMode && '还没有任务，添加一个吧！'}
+            {taskStatusFilter === 'pending' && '没有进行中的任务'}
+            {taskStatusFilter === 'completed' && '没有已完成的任务'}
+            {selectedTagFilter !== null && `没有标签"${selectedTagFilter}"的任务`}
           </li>
         ) : (
           filteredTodos.map((todo, index) => {
